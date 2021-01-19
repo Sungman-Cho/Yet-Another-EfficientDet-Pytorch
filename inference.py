@@ -7,13 +7,15 @@ import numpy as np
 import sys
 import argparse
 import os
+import csv
 
 from efficientdet.utils import BBoxTransform, ClipBoxes
-from utils.utils import aspectaware_resize_padding, invert_affine, postprocess, STANDARD_COLORS, standard_to_bgr, get_index_label, plot_one_box
+from utils.utils import *
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_path', type=str, default=None)
+    parser.add_argument('input_path', type=str, default=None)
+    parser.add_argument('output_path', type=str, default=None)
     parser.add_argument('--weights', type=str, default=None)
     parser.add_argument('--threshold', type=float, default=0.2)
     parser.add_argument('--iou_threshold', type=float, default=0.2)
@@ -55,11 +57,16 @@ def inference(args):
     input_sizes = [512, 640, 768, 896, 1024, 1280, 1280, 1536, 1536]
     input_size = input_sizes[compound_coef] if force_input_size is None else force_input_size
     
+    regressBoxes = BBoxTransform()
+    clipBoxes = ClipBoxes()
     model = EfficientDetBackbone(compound_coef=compound_coef, num_classes=len(obj_list),
                                  ratios=anchor_ratios, scales=anchor_scales)
     model.load_state_dict(torch.load(args.weights, map_location='cpu'))
     model.requires_grad_(False)
     model.eval()
+    
+    f = open(args.output_path, 'w', encoding='utf-8')
+    wr = csv.writer(f)
 
     if use_cuda:
         model = model.cuda()
@@ -68,37 +75,44 @@ def inference(args):
 
     for _file in os.listdir(img_path):
         file_path = os.path.join(img_path, _file)
+        img = cv2.imread(file_path)
+        ori_imgs, framed_imgs, framed_metas = preprocess_video(img, max_size=input_size)
+        
+        if use_cuda:
+            x = torch.stack([torch.from_numpy(fi).cuda() for fi in framed_imgs], 0)
+        else:
+            x = torch.stack([torch.from_numpy(fi) for fi in framed_imgs], 0)
 
+        x = x.to(torch.float32 if not use_float16 else torch.float16).permute(0, 3, 1, 2)
+
+        # model predict
         with torch.no_grad():
-            img = cv2.imread(file_path)
-            norm_img = (img[...,::-1]/255 - mean)/std
-            img_meta = aspectaware_resize_padding(img, max_size, max_size, means=None)
-            x = torch.from_numpy(img_meta[0]).cuda().to(torch.float32).permute(2, 1, 0).unsqueeze(0)
-
             features, regression, classification, anchors = model(x)
 
-            regressBoxes = BBoxTransform()
-            clipBoxes = ClipBoxes()
-
             out = postprocess(x,
-                              anchors, regression, classification,
-                              regressBoxes, clipBoxes,
-                              threshold, iou_threshold)
-            
-            out = out[0]
-            meta = img_meta[1]
-            print(meta)
-            print(out)
+                            anchors, regression, classification,
+                            regressBoxes, clipBoxes,
+                            threshold, iou_threshold)
 
-            out = invert_affine(meta, out)
-            print(out)
-            raise
+            out = invert_affine(framed_metas, out)[0]
+
+            predict_result = '{}, '.format(_file.split('.')[0])
+
             if len(out['rois']) > 0:
                 for j in range(len(out['rois'])):
-                    print(_file, out['class_ids'][j], float(out['scores'][j]), out['rois'][j].astype(np.int))
+                    x1, y1, x2, y2 = out['rois'][j].astype(np.int)
+                    box_result = '{} {} {} {} {} {} '.format(
+                                out['class_ids'][j],
+                                out['scores'][j],
+                                x1, y1, x2, y2)
+                                
+                    predict_result += box_result
+                predict_result = predict_result[:-1]
             else:
-                print(_file, 14, 1, 0, 0, 1, 1)
-
+                predict_result += '14 1 0 0 1 1'
+            
+            wr.writerow(predict_result)
+    f.close()
 
 if __name__ == '__main__':
     args = parse_arguments(sys.argv[1:])
