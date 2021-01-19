@@ -6,9 +6,10 @@ import cv2
 import numpy as np
 import sys
 import argparse
+import os
 
 from efficientdet.utils import BBoxTransform, ClipBoxes
-from utils.utils import preprocess, invert_affine, postprocess, STANDARD_COLORS, standard_to_bgr, get_index_label, plot_one_box
+from utils.utils import aspectaware_resize_padding, invert_affine, postprocess, STANDARD_COLORS, standard_to_bgr, get_index_label, plot_one_box
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
@@ -21,9 +22,9 @@ def parse_arguments(argv):
 
 def inference(args):
 
-    compound_coef = args.weights.split('-')[1][1]
+    compound_coef = int(args.weights.split('/')[-1].split('-')[1][1])
     force_input_size = None  # set None to use default size
-    img_path = args.i
+    img_path = args.input_path
 
     # replace this part with your project's anchor config
     anchor_ratios = [(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)]
@@ -31,6 +32,10 @@ def inference(args):
 
     threshold = args.threshold
     iou_threshold = args.iou_threshold
+
+    mean = (0.485, 0.456, 0.406)
+    std = (0.229, 0.224, 0.225)
+    max_size = 512
 
     use_cuda = True
     use_float16 = False
@@ -63,16 +68,13 @@ def inference(args):
 
     for _file in os.listdir(img_path):
         file_path = os.path.join(img_path, _file)
-        ori_imgs, framed_imgs, framed_metas = preprocess(file_path, max_size=input_size)
-
-        if use_cuda:
-            x = torch.stack([torch.from_numpy(fi).cuda() for fi in framed_imgs], 0)
-        else:
-            x = torch.stack([torch.from_numpy(fi) for fi in framed_imgs], 0)
-
-        x = x.to(torch.float32 if not use_float16 else torch.float16).permute(0, 3, 1, 2)
 
         with torch.no_grad():
+            img = cv2.imread(file_path)
+            norm_img = (img[...,::-1]/255 - mean)/std
+            img_meta = aspectaware_resize_padding(img, max_size, max_size, means=None)
+            x = torch.from_numpy(img_meta[0]).cuda().to(torch.float32).permute(2, 1, 0).unsqueeze(0)
+
             features, regression, classification, anchors = model(x)
 
             regressBoxes = BBoxTransform()
@@ -83,6 +85,14 @@ def inference(args):
                               regressBoxes, clipBoxes,
                               threshold, iou_threshold)
             
+            out = out[0]
+            meta = img_meta[1]
+            print(meta)
+            print(out)
+
+            out = invert_affine(meta, out)
+            print(out)
+            raise
             if len(out['rois']) > 0:
                 for j in range(len(out['rois'])):
                     print(_file, out['class_ids'][j], float(out['scores'][j]), out['rois'][j].astype(np.int))
@@ -92,5 +102,5 @@ def inference(args):
 
 if __name__ == '__main__':
     args = parse_arguments(sys.argv[1:])
-    assert (args.input_path == None) | (args.weights == None), 'have to input [input_path], [weights] arguments'
+    assert (args.input_path != None) & (args.weights != None), 'have to input [input_path], [weights] arguments'
     inference(args)
