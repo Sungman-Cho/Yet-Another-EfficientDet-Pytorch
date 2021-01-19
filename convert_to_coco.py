@@ -1,8 +1,8 @@
 # reference: https://www.kaggle.com/sreevishnudamodaran/vinbigdata-fusing-bboxes-coco-dataset
 
 import os
-import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.pyplot as plt
 from matplotlib import rcParams
 sns.set(rc={"font.size":9, "axes.titlesize":15, "axes.labelsize":9,
             "axes.titlepad":11, "axes.labelpad":9, "legend.fontsize":7,
@@ -26,16 +26,41 @@ from collections import Counter
 
 import SimpleITK as sitk
 
+def read_dicom(path):
+    img = sitk.GetArrayFromImage(sitk.ReadImage(path))
+    img = img[0]
 
+    np_img = img.astype(np.float32)
+    np_img -= np.min(np_img)
+    np_img /= np.percentile(np_img, 99)
+
+    np_img[np_img>1] = 1
+    np_img *= (2**8-1)
+    np_img = np_img.astype(np.uint8)
+
+    np_img = np.stack((np_img,)*3, axis=-1)
+    return np_img
+
+img_path = '/workspace/datasets/VinBigData/test_images_dcm'
+img_paths = [os.path.join(img_path, i) for i in os.listdir(img_path)]
+output_dir = '/workspace/datasets/VinBigData/test_images'
+for i, path in tqdm(enumerate(img_paths)):
+    img_array = read_dicom(path)
+
+    image_basename = Path(path).stem
+    file_name = os.path.join(output_dir, path.split('/')[-1].split('.')[0]+'.jpg')
+    cv2.imwrite(file_name, img_array)
+
+'''
 ##### HAVE TO CHANGE THIS PART FOR YOUR ENVIRONMENT
-csv_path = '/workspace/datasets/train.csv'
-img_path = '/workspace/datasets/train'
+#csv_path = '/workspace/datasets/train.csv'
+#img_path = '/workspace/datasets/train'
 
-train_output_dir = '/workspace/datasets/coco-style/imgs/train_images'
-val_output_dir = '/workspace/datasets/coco-style/imgs/val_images'
+#train_output_dir = '/workspace/datasets/coco-style/imgs/train_images'
+#val_output_dir = '/workspace/datasets/coco-style/imgs/val_images'
 
-train_out_file = '/workspace/datasets/coco-style/train_annotations.json'
-val_out_file = '/workspace/datasets/coco-style/val_annotations.json'
+#train_out_file = '/workspace/datasets/coco-style/train_annotations.json'
+#val_out_file = '/workspace/datasets/coco-style/val_annotations.json'
 
 if not os.path.exists(train_output_dir):
     os.makedirs(train_output_dir)
@@ -430,3 +455,4 @@ plt.savefig('valid_label.png')
 
 with open(val_out_file, 'w') as f:
     json.dump(data_val, f, indent=4)
+'''
