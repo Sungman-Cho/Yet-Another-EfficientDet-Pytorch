@@ -5,6 +5,7 @@ logs/
 *$py.class
 *.swp
 *.swo
+*.csv
 # C extensions
 *.so
 
