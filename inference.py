@@ -65,8 +65,7 @@ def inference(args):
     model.requires_grad_(False)
     model.eval()
     
-    f = open(args.output_path, 'w', encoding='utf-8')
-    wr = csv.writer(f)
+    f = open(args.output_path, 'w')
 
     if use_cuda:
         model = model.cuda()
@@ -97,21 +96,20 @@ def inference(args):
             out = invert_affine(framed_metas, out)[0]
 
             predict_result = '{}, '.format(_file.split('.')[0])
-
             if len(out['rois']) > 0:
                 for j in range(len(out['rois'])):
                     x1, y1, x2, y2 = out['rois'][j].astype(np.int)
                     box_result = '{} {} {} {} {} {} '.format(
                                 out['class_ids'][j],
-                                out['scores'][j],
+                                format(out['scores'][j], '2.2f'),
                                 x1, y1, x2, y2)
                                 
                     predict_result += box_result
-                predict_result = predict_result[:-1]
+                predict_result = predict_result[:-1]+'\n'
             else:
-                predict_result += '14 1 0 0 1 1'
+                predict_result += '14 1 0 0 1 1\n'
             
-            wr.writerow(predict_result)
+            f.write(predict_result)
     f.close()
 
 if __name__ == '__main__':
