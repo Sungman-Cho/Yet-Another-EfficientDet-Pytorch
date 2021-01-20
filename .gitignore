@@ -3,9 +3,15 @@ __pycache__/
 logs/
 *.py[cod]
 *$py.class
+
+
+
 *.swp
 *.swo
 *.csv
+test_results/
+
+
 # C extensions
 *.so
 
