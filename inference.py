@@ -13,9 +13,18 @@ import pathlib
 from efficientdet.utils import BBoxTransform, ClipBoxes
 from utils.utils import *
 import confuse
+import yaml
+
+class Params:
+    def __init__(self, project_file):
+        self.params = yaml.safe_load(open(project_file).read())
+
+    def __getattr__(self, item):
+        return self.params.get(item, None)
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
+    parser.add_argument('project_name', type=str, default='VinBigData')
     parser.add_argument('input_path', type=str, default=None)
     parser.add_argument('output_path', type=str, default='result')
     parser.add_argument('--weights', type=str, default=None)
@@ -23,30 +32,28 @@ def parse_arguments(argv):
     return parser.parse_args()
 
 def inference(args):
-    config = confuse.Configuration('VinBigData', __name__)
-    config.set_file('config.yaml')
-
+    params = Params(f'projects/{args.project_name}.yml')
     compound_coef = int(args.weights.split('/')[-1].split('-')[1][1])
     force_input_size = None  # set None to use default size
     img_path = args.input_path
 
-    threshold = config['Inference']['threshold'].get()
-    iou_threshold = config['Inference']['iou_threshold'].get()
+    threshold = params.inference['threshold']
+    iou_threshold = params.inference['iou_threshold']
 
-    mean = config['Property']['mean'].get()
-    std = config['Property']['std'].get()
+    mean = params.mean
+    std = params.std
 
     use_cuda = True
     use_float16 = False
     cudnn.fastest = True
     cudnn.benchmark = True
 
-    obj_list = config['Property']['classes'].get()
+    obj_list = params.obj_list
     
     color_list = standard_to_bgr(STANDARD_COLORS)
     
     # tf bilinear interpolation is different from any other's, just make do
-    input_sizes = config['Property']['input_sizes'].get()
+    input_sizes = params.input_sizes
     input_size = input_sizes[compound_coef] if force_input_size is None else force_input_size
 
     regressBoxes = BBoxTransform()

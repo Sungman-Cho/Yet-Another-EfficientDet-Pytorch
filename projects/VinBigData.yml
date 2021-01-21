@@ -7,9 +7,18 @@ num_gpus: 2
 mean: [0.2, 0.2, 0.2]
 std: [0.4, 0.4, 0.4]
 
+input_sizes: [512, 640, 768, 896, 1024, 1280, 1280, 1536, 1536]
+test_size: 512
+
 # this is coco anchors, change it if necessary
 anchors_scales: '[2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]'
 anchors_ratios: '[(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)]'
+
+colors: [
+    (39, 129, 113), (164, 80, 133), (83, 122, 114), (99, 81, 172), 
+    (95, 56, 104), (37, 84, 86), (14, 89, 122), (80, 7, 65), 
+    (10, 102, 25), (90, 185, 109), (106, 110, 132), (169, 158, 85), (188, 185, 26)
+    ]
 
 # must match your dataset's category_id.
 # category_id is one_indexed,
@@ -20,3 +29,7 @@ obj_list: [
             'Nodule/Mass', 'Other_lesion', 'Pleural_effusion', 'Pleural_thickening',
             'Pneumothorax', 'Pulmonary_fibrosis'
          ]
+
+inference:
+    threshold: 0.2
+    iou_threshold: 0.2
