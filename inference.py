@@ -65,6 +65,7 @@ def inference(args):
     
     pathlib.Path(args.output_path).mkdir(parents=True, exist_ok=True)
     f = open(os.path.join(args.output_path, 'result.csv'), 'w')
+    f.write('image_id, PredictionString\n')
 
     if use_cuda:
         model = model.cuda()
@@ -74,7 +75,7 @@ def inference(args):
     for _file in os.listdir(img_path):
         file_path = os.path.join(img_path, _file)
         img = cv2.imread(file_path)
-        ori_imgs, framed_imgs, framed_metas = preprocess_video(img, max_size=input_size)
+        ori_imgs, framed_imgs, framed_metas = preprocess_video(img, max_size=input_size, mean=mean, std=std)
         ori_imgs = ori_imgs[0]
         if use_cuda:
             x = torch.stack([torch.from_numpy(fi).cuda() for fi in framed_imgs], 0)

@@ -33,20 +33,20 @@ class Resizer(object):
 
 class Augmenter(object):
     """Convert ndarrays in sample to Tensors."""
-    def __init__(self, m=3, p=0.5):
+    def __init__(self, img_size, m=3, p=0.2):
+        self.img_size = img_size
         self.p = p
         self.m = m
 
         # augmentations regardless of bbox's location
         self.img_transform = A.Compose([
+            A.RandomCrop(width=img_size, height=img_size),
+            A.HorizontalFlip(p=self.p),
+            A.RandomBrightnessContrast(p=self.p),
             A.OneOf([
                 A.MedianBlur(blur_limit=self.m, p=self.p),
                 A.MotionBlur(p=self.p),
                 A.IAASharpen(p=self.p),
-                ], p=self.p),
-            A.OneOf([
-                A.OpticalDistortion(p=self.p),
-                A.GridDistortion(p=0.1),
                 ], p=self.p),
             A.OneOf([
                 A.CLAHE(clip_limit=self.m),
@@ -55,34 +55,15 @@ class Augmenter(object):
             A.OneOf([
                 A.GaussNoise(p=self.p),
                 A.MultiplicativeNoise(p=self.p),
-                ], p=self.p),
-            A.HueSaturationValue(
-                hue_shift_limit=self.m*0.1, 
-                sat_shift_limit=self.m*0.1,
-                val_shift_limit=self.m*0.1,
-                p=self.p)
-                ])
+                ], p=self.p)
+                ], bbox_params=A.BboxParams(format='pascal_voc'))
 
     def __call__(self, sample):
         image, annots = sample['img'], sample['annot']
 
-        img = self.img_transform(image)
-
-        # horizontal flip
-        if np.random.rand() < flip_x:
-            image = image[:, ::-1, :]
-
-            rows, cols, channels = image.shape
-
-            x1 = annots[:, 0].copy()
-            x2 = annots[:, 2].copy()
-
-            x_tmp = x1.copy()
-
-            annots[:, 0] = cols - x2
-            annots[:, 2] = cols - x_tmp
-
-            sample = {'img': image, 'annot': annots}
+        image = self.img_transform(image=image.astype('uint8'), bboxes=annots)['image']
+        
+        sample = {'img': image, 'annot': annots}
 
         return sample
 
@@ -91,8 +72,7 @@ class Normalizer(object):
     def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
         self.mean = np.array([[mean]])
         self.std = np.array([[std]])
-
     def __call__(self, sample):
         image, annots = sample['img'], sample['annot']
-
+        
         return {'img': ((image.astype(np.float32) - self.mean) / self.std), 'annot': annots}
