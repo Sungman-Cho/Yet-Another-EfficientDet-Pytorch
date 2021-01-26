@@ -49,9 +49,6 @@ class CocoDataset(Dataset):
         path = os.path.join(self.root_dir, self.set_name, image_info['file_name'])
         img = cv2.imread(path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # 여기까지 정상
-        cv2.imwrite('img.jpg', img)
-
         return img.astype(np.float32) / 255.
 
     def load_annotations(self, image_index):
@@ -73,7 +70,9 @@ class CocoDataset(Dataset):
 
             annotation = np.zeros((1, 5))
             annotation[0, :4] = a['bbox']
-            annotation[0, 4] = a['category_id'] - 1
+            annotation[0, 4] = a['category_id']
+            #annotation[0, 4] = a['category_id'] - 1
+
             annotations = np.append(annotations, annotation, axis=0)
 
         # transform from [x, y, w, h] to [x1, y1, x2, y2]

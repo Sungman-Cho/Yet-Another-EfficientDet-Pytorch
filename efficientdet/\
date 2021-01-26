@@ -32,12 +32,14 @@ class Resizer(object):
 
 class Augmenter(object):
     """Convert ndarrays in sample to Tensors."""
-    def __init__(self, m=3, p=0.2):
+    def __init__(self, img_size, m=3, p=0.2):
+        self.img_size = img_size
         self.p = p
         self.m = m
 
         # augmentations regardless of bbox's location
         self.img_transform = A.Compose([
+            A.RandomCrop(width=img_size, height=img_size),
             A.HorizontalFlip(p=self.p),
             A.RandomBrightnessContrast(p=self.p),
             A.OneOf([

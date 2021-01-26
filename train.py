@@ -114,7 +114,7 @@ def train(opt):
     input_sizes = [512, 640, 768, 896, 1024, 1280, 1280, 1536, 1536]
     training_set = CocoDataset(root_dir=os.path.join(opt.data_path, params.project_name), set=params.train_set,
                                transform=transforms.Compose([Normalizer(mean=params.mean, std=params.std),
-                                                             Augmenter(input_sizes[opt.compound_coef+1]),
+                                                             Augmenter(),
                                                              Resizer(input_sizes[opt.compound_coef])]))
     training_generator = DataLoader(training_set, **training_params)
 
@@ -217,7 +217,8 @@ def train(opt):
                 try:
                     imgs = data['img']
                     annot = data['annot']
-
+                    #_debug(imgs, annot, params) for visualization
+                
                     if params.num_gpus == 1:
                         # if only one gpu, just send it to cuda:0
                         # elif multiple gpus, send it to multiple gpus in CustomDataParallel, not here
@@ -314,6 +315,26 @@ def train(opt):
         save_checkpoint(model, f'efficientdet-d{opt.compound_coef}_{epoch}_{step}.pth')
         writer.close()
     writer.close()
+
+import cv2
+def _debug(imgs, annots, params):
+    b, c, h, w = imgs.shape
+
+    for batch in range(b):
+        img = imgs[batch,...]
+        img_cpu = img.cpu().detach().numpy().transpose(1,2,0)
+        img_cpu = img_cpu*255
+        img_cpu = img_cpu.astype(np.uint8)
+        
+        annot = annots[batch, ...]
+        for i in range(annot.shape[0]):
+            box = annot[i, :4]
+            cls = params.obj_list[int(annot[i, -1].cpu().detach().numpy())]
+            x1, y1, x2, y2 = box.cpu().detach().numpy()
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            cv2.rectangle(img_cpu, (x1,y1), (x2,y2), (0,255,255), 3)
+            cv2.putText(img_cpu, str(cls), (x1,y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0))
+        cv2.imwrite('img_{}.jpg'.format(i), img_cpu)
 
 
 def save_checkpoint(model, name):

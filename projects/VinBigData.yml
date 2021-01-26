@@ -4,8 +4,10 @@ val_set: val_images
 num_gpus: 2
 
 # mean and std in RGB order, actually this part should remain unchanged as long as your dataset is similar to coco.
-mean: [0.2, 0.2, 0.2]
-std: [0.2, 0.2, 0.2]
+#mean: [0.2, 0.2, 0.2]
+#std: [0.2, 0.2, 0.2]
+mean : [0, 0, 0]
+std : [1, 1, 1]
 
 input_sizes: [512, 640, 768, 896, 1024, 1280, 1280, 1536, 1536]
 test_size: 512
